@@ -142,7 +142,7 @@ int gsb2dat()
   }
   
 
-  float scale = 32*8*1.414;
+  float scale = 32*sqrt((float)2*host.nchans);
   typeCaste_third<<<64*1024,1024>>>(gpu.dataOut, gpu.pol_l,  gpu.pol_r, scale, gpu.nchans);
 
   cudaMemcpy(host.dataOut,gpu.dataOut,2*128*1024*1024*sizeof(char),cudaMemcpyDeviceToHost);
