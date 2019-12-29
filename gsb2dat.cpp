@@ -11,7 +11,7 @@ int gsb2dat();
 
 int main(int argc, char** argv)
 {
-  gpu.allocate_buufers(); 
+  int device; 
   char *fileOut, *r1file, *r2file, *l1file, *l2file, *ts_file, *hdrfile;
   fileOut = new char[500];
   r1file = new char[500];
@@ -65,7 +65,6 @@ int main(int argc, char** argv)
     if(strcmp(argv[i],"-n")==0)
     {
       i++;
-      gpu.nchans = atoi(argv[i]);
       host.nchans = atoi(argv[i]);
     }
     
@@ -74,6 +73,13 @@ int main(int argc, char** argv)
       i++;
       host.frequency = atof(argv[i]);
     }
+
+     if(strcmp(argv[i],"-cuda")==0)
+    {
+      i++;
+      device = atoi(argv[i]);
+    }
+
     
    
 
@@ -113,7 +119,8 @@ int main(int argc, char** argv)
     exit(0);
   }
   
-
+  gpu.allocate_buffers(host.nchans, device);
+  
   int count =0;
   fseek(host.fpr1,0,SEEK_END);
   long file_size = ftell(host.fpr1);

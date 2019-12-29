@@ -12,7 +12,7 @@
 
 #define size 4194304
 #define channels 512
-#define device 1
+
 class gpuVariables 
 {
   public: 
@@ -24,12 +24,13 @@ class gpuVariables
   float2 *temp;
   char *dataOut;
   cufftHandle plan_f,plan_b, plan_512,plan_nchans;
-  int nchans=128;
-  int nfft = 128*1024;
-  
-  int allocate_buufers()
+  int nchans;
+  int device = 1;
+  int allocate_buffers(int nc, int d)
   {
-    cudaSetDevice(device);
+    device =d;
+    nchans = nc;
+    cudaSetDevice(d);
     int batch = 4;
     int rank = 1;
     int nRows = 32*1024*1024;

@@ -111,7 +111,7 @@ __global__ void typeCaste_test(char *dataOut,  char *data_r, char *data_l)
 
 int gsb2dat()
 {
-  cudaSetDevice(device);
+  cudaSetDevice(gpu.device);
   cudaMemcpy(gpu.pol_r_char,host.pol_r_char,128*1024*1024*sizeof(char),cudaMemcpyHostToDevice);
   cudaMemcpy(gpu.pol_l_char,host.pol_l_char,128*1024*1024*sizeof(char),cudaMemcpyHostToDevice);
    
