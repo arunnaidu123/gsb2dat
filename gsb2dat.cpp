@@ -88,27 +88,27 @@ int main(int argc, char** argv)
   host.fpr1 = fopen(r1file,"rb");
   if(host.fpr1 == NULL)
   {
-    printf("cannot open the required file.... please check the file name \n");
+    printf("cannot open the required file.... please check the file name r1\n");
     exit(0);
   }
   
   host.fpr2 = fopen(r2file,"rb");
   if(host.fpr2 == NULL)
   {
-    printf("cannot open the required file.... please check the file name \n");
+    printf("cannot open the required file.... please check the file name r2 \n");
     exit(0);
   }
   
   host.fpl1 = fopen(l1file,"rb");
   if(host.fpl1 == NULL)
   {
-    printf("cannot open the required file.... please check the file name \n");
+    printf("cannot open the required file.... please check the file name l1 \n");
     exit(0);
   }
   host.fpl2 = fopen(l2file,"rb");
   if(host.fpl2 == NULL)
   {
-    printf("cannot open the required file.... please check the file name \n");
+    printf("cannot open the required file.... please check the file name l2 \n");
     exit(0);
   }
   
@@ -119,13 +119,20 @@ int main(int argc, char** argv)
     exit(0);
   }
   
+  host.fpout_l = fopen("file_l.dat","wb"); 
+  if(host.fpout == NULL)
+  {
+    printf("cannot open the out put file ...... please check the spce in the location \n");
+    exit(0);
+  }
+
   gpu.allocate_buffers(host.nchans, device);
   
   int count =0;
   fseek(host.fpr1,0,SEEK_END);
   long file_size = ftell(host.fpr1);
   fseek(host.fpr1,0,SEEK_SET);
-  long num_samples = 2*file_size/gpu.nchans;
+  long num_samples = 2*file_size;
   
   host.read_ts(ts_file);
   host.write_header(hdrfile,num_samples);

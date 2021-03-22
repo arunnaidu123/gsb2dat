@@ -20,81 +20,46 @@ class gpuVariables
   char *pol_l_char;
   float2 *pol_r;
   float2 *pol_l;
-  float *data_float;
-  float2 *temp;
   char *dataOut;
-  cufftHandle plan_f,plan_b, plan_512,plan_nchans;
-  int nchans;
+  cufftHandle plan_512;
   int device = 1;
   int allocate_buffers(int nc, int d)
   {
-    device =d;
-    nchans = nc;
+    
     cudaSetDevice(d);
-    int batch = 4;
+    cudaGetDevice(&device);
+    std::cout<<"device: "<<device<<"\n";
+
+    int batch = 128;
     int rank = 1;
-    int nRows = 32*1024*1024;
+    int nRows = 1024;
     int n[1] = {nRows};
-    int idist = 32*1024*1024;
-    int odist = 32*1024*1024;
+    int idist = 1024;
+    int odist = 1024;
     int inembed[] = {0};
     int onembed[] = {0};
     int istride = 1;
     int ostride = 1;
     
-    checkCudaErrors(cufftPlanMany(&plan_b, rank, n, inembed, istride, idist, onembed, ostride, odist, CUFFT_C2C, batch)); 
-    
-    batch = 128;
-    rank = 1;
-    nRows = 1024;
-    n[0] = nRows;
-    idist = 1024;
-    odist = 1024;
-    //inembed[0] = 0;
-    //onembed[0] = 0;
-    //istride = 1;
-    //ostride = 1;
-    
-    checkCudaErrors(cufftPlanMany(&plan_512, rank, n, inembed, istride, idist, onembed, ostride, odist, CUFFT_C2C, batch));
-
-    batch = (128*1024)/(2*nchans);
-    rank = 1;
-    nRows = 2*nchans;
-    n[0] = nRows;
-    idist = 2*nchans;
-    odist = 2*nchans;
-    //inembed[0] = 0;
-    //onembed[0] = 0;
-    //istride = 1;
-    //ostride = 1;
-    
-    checkCudaErrors(cufftPlanMany(&plan_nchans, rank, n, inembed, istride, idist, onembed, ostride, odist, CUFFT_C2C, batch));
- 
-    
-    
+    checkCudaErrors(cufftPlanMany(&plan_512, rank, n, inembed, istride, idist, onembed, ostride, odist, CUFFT_C2C, batch)); 
     
     checkCudaErrors(cudaMalloc((void **)&pol_r, sizeof(float2)*128*1024*1024));
     checkCudaErrors(cudaMalloc((void **)&pol_l, sizeof(float2)*128*1024*1024));
-    checkCudaErrors(cudaMalloc((void **)&dataOut, sizeof(char)*128*1024*1024*2));
+    checkCudaErrors(cudaMalloc((void **)&dataOut, sizeof(char)*2*128*1024*1024));
     checkCudaErrors(cudaMalloc((void **)&pol_r_char, sizeof(char)*128*1024*1024));
     checkCudaErrors(cudaMalloc((void **)&pol_l_char, sizeof(char)*128*1024*1024));
-    checkCudaErrors(cudaMalloc((void **)&temp, sizeof(char)*128*1024*1024));
-    checkCudaErrors(cudaMalloc((void **)&data_float, sizeof(float)*128*1024*1024*2));
-
-    checkCudaErrors(cufftPlan1d(&plan_f, 128*1024*1024, CUFFT_C2C, 1));   
     return 0;
   }
   
   ~gpuVariables()
   { 
     cudaSetDevice(device);
-    cufftDestroy(plan_f);
-    cufftDestroy(plan_b);
     cufftDestroy(plan_512);
-    cufftDestroy(plan_nchans);
     cudaFree(pol_l);
     cudaFree(pol_r);
     cudaFree(dataOut);
+    cudaFree(pol_r_char);
+    cudaFree(pol_l_char);
   }
 };
 
@@ -104,9 +69,9 @@ class hostVariables
   char *data_r1, *data_r2, *data_l1, *data_l2;
   char *pol_r_char;
   char *pol_l_char;
-  FILE *fpl1, *fpl2, *fpr1, *fpr2, *fpout;
-  char *dataOut, *dataOut_t;
-  float* data_float;
+  FILE *fpl1, *fpl2, *fpr1, *fpr2, *fpout, *fpout_l;
+  char *dataOut;
+  char* dataOut_t;
   char  *timestamp, *source;
   long picoseconds;
   int nchans;
@@ -117,9 +82,8 @@ class hostVariables
     data_r2 = (char*) malloc(sizeof(char)*64*1024*1024);  
     data_l1 = (char*) malloc(sizeof(char)*64*1024*1024);
     data_l2 = (char*) malloc(sizeof(char)*64*1024*1024);
-    data_float = (float*) malloc(sizeof(float)*256*1024*1024);
-    dataOut = (char*) malloc(sizeof(char)*256*1024*1024);
     dataOut_t = (char*) malloc(sizeof(char)*256*1024*1024);
+    dataOut = (char*) malloc(sizeof(char)*256*1024*1024);
     pol_r_char = (char*) malloc(sizeof(char)*128*1024*1024);
     pol_l_char = (char*) malloc(sizeof(char)*128*1024*1024);
 
@@ -154,6 +118,14 @@ class hostVariables
       memcpy(&pol_l_char[(2*i+1)*size],&data_l2[size*i],size);
       std::cout.flush();
     }
+    for(int i=0;i<64*1024*1024;i++)
+    {
+      dataOut_t[4*i] = pol_r_char[2*i];
+      dataOut_t[4*i+1] = pol_r_char[2*i+1];
+      dataOut_t[4*i+2] = pol_l_char[2*i];
+      dataOut_t[4*i+3] = pol_l_char[2*i+1];
+    }
+    //fwrite(dataOut_t,sizeof(char),256*1024*1024,fpout_l);
   }
   
   int read_ts(char* file_name)
@@ -197,15 +169,15 @@ class hostVariables
     fprintf(fphdr,"SOURCE %s \n",source);
     fprintf(fphdr,"MODE PSR \n");
     fprintf(fphdr,"NBIT 8 \n");
-    fprintf(fphdr,"NCHAN %d \n",nchans);
-    fprintf(fphdr,"NDIM 2 \n");
+    fprintf(fphdr,"NCHAN 1 \n");
+    fprintf(fphdr,"NDIM 1 \n");
     fprintf(fphdr,"NPOL 2 \n");
     fprintf(fphdr,"NDAT %ld \n",num_samples);
     fprintf(fphdr,"OBS_OFFSET 0 \n");
     fprintf(fphdr,"UTC_START %s\n",timestamp);
     fprintf(fphdr,"PICOSECONDS %ld\n",picoseconds);
-    fprintf(fphdr,"TSAMP %f\n",0.03*nchans*2);
-    fprintf(fphdr,"RESOLUTION 4\n");
+    fprintf(fphdr,"TSAMP %1.10lf\n",0.030000036);
+    fprintf(fphdr,"RESOLUTION 2\n");
     //fprintf(fphdr,"RA %s \n",ra_char);
     //fprintf(fphdr,"DEC %s \n",dec_char);
     fclose(fphdr);
@@ -218,6 +190,7 @@ class hostVariables
     fclose(fpl1);
     fclose(fpl2);
     fclose(fpout);
+    fclose(fpout_l);
     exit(0);
     return 0;
   }
